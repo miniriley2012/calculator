@@ -1,0 +1,52 @@
+#!/usr/bin/env sh
+
+[ -e config.mk ] && rm config.mk
+[ -e readline.h ] && rm readline.h
+touch config.mk
+
+# Find a readline compatible library
+case "$(uname -s)" in
+  FreeBSD)
+    # Use system libedit library
+    echo 'Using FreeBSD libedit for readline support'
+    echo 'CFLAGS+=-I/usr/include/edit' >> config.mk
+    echo 'LDFLAGS+=-ledit -ltermcap' >> config.mk
+    echo '#include <edit/readline/readline.h>' >> readline.h
+    ;;
+  *)
+    # Use pkg-config, if available
+    pkg-config --version > /dev/null
+    if [ $? -eq 0 ]; then
+      pkg-config --print-errors 'libedit'
+      if [ $? -eq 0 ]; then
+        echo 'Found libedit using pkg-config.'
+        cat >> config.mk <<-EOF
+CFLAGS+=$(pkg-config --cflags libedit)
+LDFLAGS+=$(pkg-config --libs libedit)
+EOF
+        echo '#include <readline.h>' > readline.h
+      else
+        pkg-config --print-errors 'readline'
+        if [ $? -eq 0 ]; then
+          echo 'Found readline using pkg-config.'
+          cat >> config.mk <<-EOF
+CFLAGS+=$(pkg-config --cflags readline)
+LDFLAGS+=$(pkg-config --libs readline)
+EOF
+          echo '#include <readline/readline.h>' >> readline.h
+          echo '#include <readline/history.h>' >> readline.h
+        else
+          echo 'Could not find a suitable readline library.'
+        fi
+      fi
+    else
+      echo 'pkg-config is not available in PATH.'
+    fi
+esac
+
+if [ ! -e 'readline.h' ]; then
+  echo 'Falling back on readline shim'
+  echo '#include "readline-shim.h"' > readline.h
+fi
+
+echo 'Done configuring.'
