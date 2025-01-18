@@ -83,10 +83,10 @@ static ssize_t evaluate(const char *expr, double *result, int precedence) {
   }
 
   if (isdigit(*cur) || *cur == '(' || *cur == '.') {
-    if ((ret = (evaluate(cur, &right, precedence)) < 0)) {
+    if ((ret = evaluate(cur, &right, precedence)) < 0) {
       return ret;
     }
-    expr += ret;
+    cur += ret;
     left *= right;
   }
 
@@ -98,7 +98,7 @@ static ssize_t evaluate(const char *expr, double *result, int precedence) {
 int main() {
   char *line = NULL;
   double result;
-  int err;
+  ssize_t ret;
 
   rl_bind_key('\t', rl_insert);
 
@@ -110,8 +110,8 @@ int main() {
     }
     add_history(line);
 
-    err = evaluate(line, &result, 0);
-    if (err < 0) {
+    ret = evaluate(line, &result, 0);
+    if (ret < 0 || line[ret] != '\0') {
       fprintf(stderr, "error evaluating expression\n");
     } else {
       printf("$ %lg\n", result);
