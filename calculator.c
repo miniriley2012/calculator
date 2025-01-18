@@ -12,29 +12,16 @@ static const char *skip_space(const char *s) {
   return s;
 }
 
-static const struct operator{
-  char operator;
-  int precedence;
-  size_t len;
-}
-operators[] = {
-    {'+', 1, 1}, {'-', 1, 1}, {'*', 2, 1}, {'/', 2, 1}, {'(', 3, 0},
-};
-
-static struct operator get_operator(const char *op) {
+static int get_precedence(const char *op) {
   switch (*op) {
   case '+':
-    return operators[0];
   case '-':
-    return operators[1];
+    return 1;
   case '*':
-    return operators[2];
   case '/':
-    return operators[3];
-  case '(':
-    return operators[4];
+    return 2;
   default:
-    return (struct operator){ 0, 0 };
+    return 0;
   }
 }
 
@@ -42,7 +29,8 @@ static ssize_t evaluate(const char *expr, double *result, int precedence) {
   ssize_t ret;
   double left;
   double right;
-  struct operator op;
+  int cur_precedence;
+  char cur_op;
   const char *cur = expr;
 
   cur = skip_space(cur);
@@ -71,21 +59,20 @@ static ssize_t evaluate(const char *expr, double *result, int precedence) {
 
   cur = skip_space(cur);
 
-  while ((op = get_operator(cur)).precedence > precedence) {
-    cur += op.len;
-    if ((ret = evaluate(cur, &right, op.precedence)) < 0) {
+  while ((cur_precedence = get_precedence(cur)) > precedence) {
+    cur_op = *cur++;
+    if ((ret = evaluate(cur, &right, cur_precedence)) < 0) {
       return ret;
     }
     cur = skip_space(cur + ret);
 
-    switch (op.operator) {
+    switch (cur_op) {
     case '+':
       left += right;
       break;
     case '-':
       left -= right;
       break;
-    case '(':
     case '*':
       left *= right;
       break;
@@ -95,7 +82,7 @@ static ssize_t evaluate(const char *expr, double *result, int precedence) {
     }
   }
 
-  if (isdigit(*cur)) {
+  if (isdigit(*cur) || *cur == '(' || *cur == '.') {
     if ((ret = (evaluate(cur, &right, precedence)) < 0)) {
       return ret;
     }
